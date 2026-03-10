@@ -1,16 +1,55 @@
-# React + Vite
+# Common Ground Finder
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A nonpartisan political analysis tool that helps Americans find shared values across the political divide.
 
-Currently, two official plugins are available:
+![App Screenshot](screenshot-placeholder.png)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## What It Does
 
-## React Compiler
+Common Ground Finder uses AI to present steelmanned perspectives from both the Left and Right on hot-button political issues. For any topic, it surfaces areas of genuine agreement, identifies the deeper human values motivating each side, and provides key data points both sides should acknowledge. Users can optionally select their political party to receive a personalized insight explaining what the other side genuinely believes and why.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Why We Built It
 
-## Expanding the ESLint configuration
+Most Americans share more common values than media and social media suggest. But the incentive structures of modern discourse reward outrage over understanding, and most people rarely encounter the other side's strongest arguments. Common Ground Finder is an attempt to bridge that gap with data and empathy -- presenting each perspective at its best, then showing where the overlap actually exists.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Features
+
+- 12 pre-populated hot-button topics + custom topic input
+- Steelmanned Left and Right perspectives (no strawmanning)
+- Common Ground Score (0-100) with color-coded progress bar
+- Shared human values surfaced for both sides
+- Key data points both sides should acknowledge
+- Personalized insight based on Democrat / Independent / Republican selection
+
+## Tech Stack
+
+- **Frontend:** React + Vite (inline styles, no component libraries)
+- **AI Model:** Anthropic Claude API (`claude-sonnet-4-20250514`)
+- **Backend:** Vercel serverless functions (API proxy)
+- **Deployment:** Vercel
+
+## Getting Started
+
+```bash
+git clone https://github.com/johnnyrauh/common-ground-finder.git
+cd common-ground-finder
+npm install
+```
+
+Create a `.env.local` file with your Anthropic API key:
+
+```
+ANTHROPIC_API_KEY=your_key_here
+```
+
+Run the development server (uses Vercel's local runtime so the serverless function works):
+
+```bash
+vercel dev
+```
+
+The app will be available at `http://localhost:3000`.
+
+## Live Demo
+
+Live at: [your-vercel-url]
