@@ -143,19 +143,9 @@ export default function CommonGroundFinder() {
     userMsg += '. Return ONLY valid JSON, no markdown, no preamble.';
 
     try {
-      const apiKey =
-        (typeof import.meta !== 'undefined' && import.meta.env?.VITE_ANTHROPIC_API_KEY) || '';
-
-      const headers = {
-        'Content-Type': 'application/json',
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      };
-      if (apiKey) headers['x-api-key'] = apiKey;
-
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const res = await fetch('/api/analyze', {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 1000,
