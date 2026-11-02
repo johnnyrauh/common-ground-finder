@@ -102,6 +102,9 @@ export default function CommonGroundFinder() {
   const [selectedParty, setSelectedParty] = useState(null);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);
+  // { topic, value, rows, sourced }. Set as soon as it is known, which for preset
+  // topics is before the written analysis comes back.
+  const [score, setScore] = useState(null);
   const [activeTab, setActiveTab] = useState(0);
   const [error, setError] = useState(null);
   const resultsRef = useRef(null);
@@ -130,12 +133,12 @@ export default function CommonGroundFinder() {
     }
   }, []);
 
-  // Scroll to results when they appear
+  // Scroll to the score when it appears
   useEffect(() => {
-    if (results && resultsRef.current) {
+    if (score && resultsRef.current) {
       resultsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
-  }, [results]);
+  }, [score]);
 
   // ── Handlers ────────────────────────────────────────────────────
 
@@ -149,6 +152,17 @@ export default function CommonGroundFinder() {
     setLoading(true);
     setError(null);
     setResults(null);
+
+    // Preset topics are scored from published polls, so the score can be shown
+    // right away. Custom topics are scored from the model's estimates, which the
+    // UI labels as unverified.
+    const topic = activeTopic;
+    const sourced = POLL_DATA[topic];
+    setScore(
+      sourced
+        ? { topic, value: computeOverlapScore(sourced), rows: sourced, sourced: true }
+        : null
+    );
 
     let userMsg = `Analyze this political topic: '${activeTopic}'`;
     if (selectedParty) userMsg += `. The user identifies as: ${selectedParty}`;
@@ -175,19 +189,19 @@ export default function CommonGroundFinder() {
       const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const parsed = JSON.parse(cleaned);
 
-      // Preset topics are scored from published polls; custom topics fall back to
-      // the model's estimates, which the UI labels as unverified.
-      const sourced = POLL_DATA[activeTopic];
-      parsed.scoreSourced = Boolean(sourced);
-      if (sourced) parsed.policySupport = sourced;
-      parsed.overlapScore = computeOverlapScore(parsed.policySupport);
-      if (!parsed.commonGround || !parsed.leftPerspective || parsed.overlapScore === null) {
+      if (!parsed.commonGround || !parsed.leftPerspective) {
         throw new Error('Unexpected response shape from API');
+      }
+      if (!sourced) {
+        const value = computeOverlapScore(parsed.policySupport);
+        if (value === null) throw new Error('Unexpected response shape from API');
+        setScore({ topic, value, rows: parsed.policySupport, sourced: false });
       }
 
       setResults(parsed);
       setActiveTab(0);
     } catch (err) {
+      setScore(null);
       setError(err.message || 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
@@ -199,6 +213,7 @@ export default function CommonGroundFinder() {
     setCustomTopic('');
     setSelectedParty(null);
     setResults(null);
+    setScore(null);
     setError(null);
     setActiveTab(0);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -407,8 +422,8 @@ export default function CommonGroundFinder() {
           </div>
         )}
 
-        {/* ── Loading State ───────────────────────────────────── */}
-        {loading && (
+        {/* ── Loading State (custom topics, before any score) ─── */}
+        {loading && !score && (
           <div style={{ textAlign: 'center', padding: '80px 0' }}>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
               {[0, 1, 2].map((i) => (
@@ -464,7 +479,7 @@ export default function CommonGroundFinder() {
         )}
 
         {/* ── Results ─────────────────────────────────────────── */}
-        {results && (
+        {score && (
           <div ref={resultsRef} style={{ animation: 'cgf-fadeUp 0.6s ease-out' }}>
             {/* Topic label */}
             <div style={{ textAlign: 'center', marginBottom: 32 }}>
@@ -479,87 +494,110 @@ export default function CommonGroundFinder() {
                   margin: 0,
                 }}
               >
-                {activeTopic}
+                {score.topic}
               </h2>
             </div>
 
             {/* Score Bar */}
-            <ScoreBar
-              score={results.overlapScore}
-              rows={results.policySupport}
-              sourced={results.scoreSourced}
-            />
+            <ScoreBar score={score.value} rows={score.rows} sourced={score.sourced} />
 
-            {/* Tab Bar */}
-            <div
-              style={{
-                display: 'flex',
-                borderBottom: `1px solid ${C.border}`,
-                marginTop: 36,
-                overflowX: 'auto',
-              }}
-            >
-              {tabs.map((label, i) => (
-                <button
-                  key={label}
-                  onClick={() => setActiveTab(i)}
+            {loading && (
+              <div style={{ textAlign: 'center', padding: '48px 0 8px' }}>
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        background: C.gold,
+                        animation: `cgf-dot 1.4s ease-in-out ${i * 0.2}s infinite`,
+                      }}
+                    />
+                  ))}
+                </div>
+                <p style={{ marginTop: 20, color: C.textMuted, fontSize: 14 }}>
+                  Writing the full analysis of both perspectives...
+                </p>
+              </div>
+            )}
+
+            {results && (
+              <>
+
+                {/* Tab Bar */}
+                <div
                   style={{
-                    padding: '14px 24px',
-                    background: 'none',
-                    border: 'none',
-                    borderBottom: `2.5px solid ${
-                      activeTab === i ? C.gold : 'transparent'
-                    }`,
-                    color: activeTab === i ? C.gold : C.textMuted,
-                    fontFamily: FONT.body,
-                    fontSize: 14,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    transition: 'all 0.15s ease',
-                    outline: 'none',
+                    display: 'flex',
+                    borderBottom: `1px solid ${C.border}`,
+                    marginTop: 36,
+                    overflowX: 'auto',
                   }}
                 >
-                  {label}
+                  {tabs.map((label, i) => (
+                    <button
+                      key={label}
+                      onClick={() => setActiveTab(i)}
+                      style={{
+                        padding: '14px 24px',
+                        background: 'none',
+                        border: 'none',
+                        borderBottom: `2.5px solid ${
+                          activeTab === i ? C.gold : 'transparent'
+                        }`,
+                        color: activeTab === i ? C.gold : C.textMuted,
+                        fontFamily: FONT.body,
+                        fontSize: 14,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                        transition: 'all 0.15s ease',
+                        outline: 'none',
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Tab Content */}
+                <div
+                  key={activeTab}
+                  style={{ marginTop: 28, animation: 'cgf-fadeUp 0.35s ease-out' }}
+                >
+                  {activeTab === 0 && <PerspectivesTab data={results} />}
+                  {activeTab === 1 && <CommonGroundTab data={results} />}
+                  {activeTab === 2 && <KeyDataTab data={results} />}
+                  {activeTab === 3 && results.personalizedInsight && (
+                    <InsightTab data={results} party={selectedParty} />
+                  )}
+                </div>
+
+                {/* Reset */}
+                <button
+                  onClick={handleReset}
+                  style={{
+                    display: 'block',
+                    margin: '56px auto 0',
+                    padding: '14px 36px',
+                    background: 'transparent',
+                    color: C.gold,
+                    border: `1.5px solid ${C.gold}`,
+                    borderRadius: 10,
+                    fontSize: 14,
+                    fontWeight: 600,
+                    fontFamily: FONT.body,
+                    letterSpacing: '1px',
+                    textTransform: 'uppercase',
+                    cursor: 'pointer',
+                    transition: 'opacity 0.15s ease',
+                  }}
+                >
+                  Analyze Another Topic
                 </button>
-              ))}
-            </div>
-
-            {/* Tab Content */}
-            <div
-              key={activeTab}
-              style={{ marginTop: 28, animation: 'cgf-fadeUp 0.35s ease-out' }}
-            >
-              {activeTab === 0 && <PerspectivesTab data={results} />}
-              {activeTab === 1 && <CommonGroundTab data={results} />}
-              {activeTab === 2 && <KeyDataTab data={results} />}
-              {activeTab === 3 && results.personalizedInsight && (
-                <InsightTab data={results} party={selectedParty} />
-              )}
-            </div>
-
-            {/* Reset */}
-            <button
-              onClick={handleReset}
-              style={{
-                display: 'block',
-                margin: '56px auto 0',
-                padding: '14px 36px',
-                background: 'transparent',
-                color: C.gold,
-                border: `1.5px solid ${C.gold}`,
-                borderRadius: 10,
-                fontSize: 14,
-                fontWeight: 600,
-                fontFamily: FONT.body,
-                letterSpacing: '1px',
-                textTransform: 'uppercase',
-                cursor: 'pointer',
-                transition: 'opacity 0.15s ease',
-              }}
-            >
-              Analyze Another Topic
-            </button>
+              </>
+            )}
           </div>
         )}
       </div>
