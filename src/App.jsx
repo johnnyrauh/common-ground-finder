@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { POLL_DATA } from './pollData';
 
 // ─── Constants ──────────────────────────────────────────────────────
 
@@ -55,7 +56,7 @@ When given a political topic and optionally a user's political party, provide a 
 - sharedValues: array of 4-6 strings (deeper human values motivating both sides)
 - keyDataPoints: array of 3-4 strings (verifiable statistics both sides should acknowledge)
 - personalizedInsight: string or null (only if party provided — what the other side genuinely believes and why, written for someone of this party)
-- overlapScore: number 0-100 (how much genuine overlap exists on this topic)
+- policySupport: array of 5-6 objects { "policy": string, "democratPct": integer 0-100, "republicanPct": integer 0-100 }. These are the specific policies most central to the national debate on this topic, both the contested ones and the ones with bipartisan support, so the list reflects the real state of the debate rather than only the common ground. democratPct and republicanPct are the approximate share of Democrats and Republicans who support each policy, based on recent national polling (Pew, Gallup, AP-NORC and similar).
 
 Be analytical, data-driven, and scrupulously fair. Never strawman either side.`;
 
@@ -75,6 +76,17 @@ const getScoreColor = (score) => {
   if (score <= 34) return C.red;
   if (score <= 59) return C.amber;
   return C.green;
+};
+
+// Common Ground Score: average partisan gap in support across the topic's key
+// policies, inverted so 100 means both parties support them equally.
+const computeOverlapScore = (policySupport) => {
+  const rows = (policySupport || []).filter(
+    (p) => Number.isFinite(p?.democratPct) && Number.isFinite(p?.republicanPct)
+  );
+  if (rows.length === 0) return null;
+  const avgGap = rows.reduce((sum, p) => sum + Math.abs(p.democratPct - p.republicanPct), 0) / rows.length;
+  return Math.round(100 - avgGap);
 };
 
 const getPartyColor = (party) => {
@@ -163,7 +175,13 @@ export default function CommonGroundFinder() {
       const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const parsed = JSON.parse(cleaned);
 
-      if (!parsed.commonGround || !parsed.leftPerspective) {
+      // Preset topics are scored from published polls; custom topics fall back to
+      // the model's estimates, which the UI labels as unverified.
+      const sourced = POLL_DATA[activeTopic];
+      parsed.scoreSourced = Boolean(sourced);
+      if (sourced) parsed.policySupport = sourced;
+      parsed.overlapScore = computeOverlapScore(parsed.policySupport);
+      if (!parsed.commonGround || !parsed.leftPerspective || parsed.overlapScore === null) {
         throw new Error('Unexpected response shape from API');
       }
 
@@ -466,7 +484,11 @@ export default function CommonGroundFinder() {
             </div>
 
             {/* Score Bar */}
-            <ScoreBar score={results.overlapScore} />
+            <ScoreBar
+              score={results.overlapScore}
+              rows={results.policySupport}
+              sourced={results.scoreSourced}
+            />
 
             {/* Tab Bar */}
             <div
@@ -587,7 +609,7 @@ function StepLabel({ number, text, optional }) {
   );
 }
 
-function ScoreBar({ score }) {
+function ScoreBar({ score, rows, sourced }) {
   const color = getScoreColor(score);
   return (
     <div
@@ -638,7 +660,52 @@ function ScoreBar({ score }) {
           }}
         />
       </div>
+      <ScoreBasis rows={rows} sourced={sourced} />
     </div>
+  );
+}
+
+function ScoreBasis({ rows, sourced }) {
+  if (!rows?.length) return null;
+  const summary = sourced
+    ? `Based on national polling on ${rows.length} policies`
+    : `Estimated by AI for ${rows.length} policies (not verified against specific polls)`;
+  return (
+    <details style={{ marginTop: 16, fontFamily: FONT.body, fontSize: 13, color: C.textMuted }}>
+      <summary style={{ cursor: 'pointer', color: C.text }}>{summary}</summary>
+      <p style={{ margin: '12px 0', lineHeight: 1.5 }}>
+        The score is 100 minus the average gap between the share of Democrats and the share of
+        Republicans who support each policy. 100 means both parties support every policy equally.
+      </p>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 420 }}>
+          <thead>
+            <tr style={{ textAlign: 'left', color: C.textMuted }}>
+              <th style={{ padding: '6px 8px 6px 0', fontWeight: 500 }}>Policy</th>
+              <th style={{ padding: '6px 8px', fontWeight: 500, color: C.dem }}>Dem</th>
+              <th style={{ padding: '6px 8px', fontWeight: 500, color: C.rep }}>Rep</th>
+              {sourced && <th style={{ padding: '6px 0 6px 8px', fontWeight: 500 }}>Source</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.policy} style={{ borderTop: `1px solid ${C.border}`, color: C.text }}>
+                <td style={{ padding: '8px 8px 8px 0', lineHeight: 1.4 }}>{r.policy}</td>
+                <td style={{ padding: '8px', whiteSpace: 'nowrap' }}>{r.democratPct}%</td>
+                <td style={{ padding: '8px', whiteSpace: 'nowrap' }}>{r.republicanPct}%</td>
+                {sourced && (
+                  <td style={{ padding: '8px 0 8px 8px' }}>
+                    <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ color: C.gold }}>
+                      {r.source}, {r.date}
+                    </a>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </details>
   );
 }
 
