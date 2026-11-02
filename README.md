@@ -24,7 +24,7 @@ Most Americans share more common values than media and social media suggest. But
 ## Tech Stack
 
 - **Frontend:** React + Vite (inline styles, no component libraries)
-- **AI Model:** Anthropic Claude API (`claude-sonnet-4-20250514`)
+- **AI Model:** Anthropic Claude API (`claude-sonnet-5` by default; override with the `ANTHROPIC_MODEL` env var)
 - **Backend:** Vercel serverless functions (API proxy)
 - **Deployment:** Vercel
 
@@ -40,6 +40,8 @@ Create a `.env.local` file with your Anthropic API key:
 
 ```
 ANTHROPIC_API_KEY=your_key_here
+# Optional, defaults to claude-sonnet-5
+# ANTHROPIC_MODEL=claude-sonnet-5
 ```
 
 Run the development server (uses Vercel's local runtime so the serverless function works):

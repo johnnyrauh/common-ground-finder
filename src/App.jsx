@@ -147,8 +147,7 @@ export default function CommonGroundFinder() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
+          max_tokens: 16000,
           system: SYSTEM_PROMPT,
           messages: [{ role: 'user', content: userMsg }],
         }),
@@ -160,7 +159,7 @@ export default function CommonGroundFinder() {
       }
 
       const data = await res.json();
-      const raw = data.content?.[0]?.text || '';
+      const raw = data.content?.find((b) => b.type === 'text')?.text || '';
       const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const parsed = JSON.parse(cleaned);
 
