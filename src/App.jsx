@@ -665,7 +665,21 @@ function ScoreBar({ score, rows, sourced }) {
   );
 }
 
+const NARROW_QUERY = '(max-width: 600px)';
+
+function useIsNarrow() {
+  const [narrow, setNarrow] = useState(() => window.matchMedia(NARROW_QUERY).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(NARROW_QUERY);
+    const onChange = (e) => setNarrow(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  return narrow;
+}
+
 function ScoreBasis({ rows, sourced }) {
+  const narrow = useIsNarrow();
   if (!rows?.length) return null;
   const summary = sourced
     ? `Based on national polling on ${rows.length} policies`
@@ -677,35 +691,79 @@ function ScoreBasis({ rows, sourced }) {
         The score is 100 minus the average gap between the share of Democrats and the share of
         Republicans who support each policy. 100 means both parties support every policy equally.
       </p>
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 420 }}>
-          <thead>
-            <tr style={{ textAlign: 'left', color: C.textMuted }}>
-              <th style={{ padding: '6px 8px 6px 0', fontWeight: 500 }}>Policy</th>
-              <th style={{ padding: '6px 8px', fontWeight: 500, color: C.dem }}>Dem</th>
-              <th style={{ padding: '6px 8px', fontWeight: 500, color: C.rep }}>Rep</th>
-              {sourced && <th style={{ padding: '6px 0 6px 8px', fontWeight: 500 }}>Source</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.policy} style={{ borderTop: `1px solid ${C.border}`, color: C.text }}>
-                <td style={{ padding: '8px 8px 8px 0', lineHeight: 1.4 }}>{r.policy}</td>
-                <td style={{ padding: '8px', whiteSpace: 'nowrap' }}>{r.democratPct}%</td>
-                <td style={{ padding: '8px', whiteSpace: 'nowrap' }}>{r.republicanPct}%</td>
-                {sourced && (
-                  <td style={{ padding: '8px 0 8px 8px' }}>
-                    <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ color: C.gold }}>
-                      {r.source}, {r.date}
-                    </a>
-                  </td>
-                )}
+      {narrow ? (
+        <PolicyCards rows={rows} sourced={sourced} />
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 420 }}>
+            <thead>
+              <tr style={{ textAlign: 'left', color: C.textMuted }}>
+                <th style={{ padding: '6px 8px 6px 0', fontWeight: 500 }}>Policy</th>
+                <th style={{ padding: '6px 8px', fontWeight: 500, color: C.dem }}>Dem</th>
+                <th style={{ padding: '6px 8px', fontWeight: 500, color: C.rep }}>Rep</th>
+                {sourced && <th style={{ padding: '6px 0 6px 8px', fontWeight: 500 }}>Source</th>}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.policy} style={{ borderTop: `1px solid ${C.border}`, color: C.text }}>
+                  <td style={{ padding: '8px 8px 8px 0', lineHeight: 1.4 }}>{r.policy}</td>
+                  <td style={{ padding: '8px', whiteSpace: 'nowrap' }}>{r.democratPct}%</td>
+                  <td style={{ padding: '8px', whiteSpace: 'nowrap' }}>{r.republicanPct}%</td>
+                  {sourced && (
+                    <td style={{ padding: '8px 0 8px 8px' }}>
+                      <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ color: C.gold }}>
+                        {r.source}, {r.date}
+                      </a>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </details>
+  );
+}
+
+function PolicyCards({ rows, sourced }) {
+  const pct = (label, value, color) => (
+    <span style={{ color, fontWeight: 600 }}>
+      {label} {value}%
+    </span>
+  );
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {rows.map((r) => (
+        <div
+          key={r.policy}
+          style={{
+            background: C.surfaceLight,
+            borderRadius: 8,
+            padding: '12px 14px',
+            color: C.text,
+            lineHeight: 1.4,
+          }}
+        >
+          <div>{r.policy}</div>
+          <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 14 }}>
+            {pct('Dem', r.democratPct, C.dem)}
+            {pct('Rep', r.republicanPct, C.rep)}
+          </div>
+          {sourced && (
+            <a
+              href={r.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ display: 'inline-block', marginTop: 6, color: C.gold, fontSize: 12 }}
+            >
+              {r.source}, {r.date}
+            </a>
+          )}
+        </div>
+      ))}
+    </div>
   );
 }
 
