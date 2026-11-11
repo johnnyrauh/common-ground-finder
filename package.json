@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "eval": "node evals/estimate.js smoke && promptfoo eval -c evals/promptfooconfig.yaml -o evals/results/smoke.json",
+    "eval:full": "node evals/estimate.js full && promptfoo eval -c evals/promptfooconfig.yaml -t evals/cases.full.yaml -o evals/results/full.json",
+    "eval:symmetry": "node evals/estimate.js symmetry && node evals/symmetry.js",
+    "eval:view": "promptfoo view"
   },
   "dependencies": {
     "react": "^19.2.0",
@@ -18,10 +22,16 @@
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
+    "dotenv": "^18.0.10",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
+    "js-yaml": "^5.5.0",
+    "promptfoo": "^0.125.1",
     "vite": "^7.3.1"
+  },
+  "engines": {
+    "node": ">=22.22.0"
   }
 }

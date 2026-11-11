@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: Common Ground Finder fairness evals
+
+# The provider ignores the prompt text and calls lib/analyze.js with the test vars,
+# so every eval hits the exact production system prompt, model and settings.
+prompts:
+  - "{{topic}} (lean: {{lean}})"
+
+providers:
+  - id: file://provider.js
+    label: common-ground (production prompt)
+
+# Smoke tier by default. The full tier swaps this with `-t evals/cases.full.yaml`.
+tests: file://cases.smoke.yaml
+
+evaluateOptions:
+  # Responses are cached (provider.js for the app, promptfoo's Anthropic provider for
+  # the grader). Pass --no-cache to force fresh calls.
+  cache: true
+  maxConcurrency: 3

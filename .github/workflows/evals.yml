@@ -1,0 +1,62 @@
+name: Evals
+
+on:
+  pull_request:
+    paths:
+      - 'lib/**'
+      - 'api/**'
+      - 'evals/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      PROMPTFOO_DISABLE_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Smoke evals
+        run: npm run eval
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-results-smoke
+          path: evals/results/
+          if-no-files-found: ignore
+
+  full:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      PROMPTFOO_DISABLE_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Full evals
+        run: npm run eval:full
+      - name: Symmetry evals (baseline mode, report only)
+        if: always()
+        run: npm run eval:symmetry
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-results-full
+          path: evals/results/
+          if-no-files-found: ignore

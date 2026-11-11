@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { POLL_DATA } from './pollData';
+import { computeOverlapScore } from '../lib/score.js';
 
 // ─── Constants ──────────────────────────────────────────────────────
 
@@ -46,20 +47,6 @@ const PARTIES = [
   { id: 'Republican', color: C.rep },
 ];
 
-const SYSTEM_PROMPT = `You are a rigorous, non-partisan political analyst. Your goal is to help Americans find common ground by presenting balanced, steelmanned perspectives on political issues.
-
-When given a political topic and optionally a user's political party, provide a structured analysis. Return ONLY valid JSON with these exact keys:
-
-- leftPerspective: array of 3-4 strings (strongest progressive arguments)
-- rightPerspective: array of 3-4 strings (strongest conservative arguments)
-- commonGround: array of 3-5 strings (specific areas of genuine agreement)
-- sharedValues: array of 4-6 strings (deeper human values motivating both sides)
-- keyDataPoints: array of 3-4 strings (verifiable statistics both sides should acknowledge)
-- personalizedInsight: string or null (only if party provided — what the other side genuinely believes and why, written for someone of this party)
-- policySupport: array of 5-6 objects { "policy": string, "democratPct": integer 0-100, "republicanPct": integer 0-100 }. These are the specific policies most central to the national debate on this topic, both the contested ones and the ones with bipartisan support, so the list reflects the real state of the debate rather than only the common ground. democratPct and republicanPct are the approximate share of Democrats and Republicans who support each policy, based on recent national polling (Pew, Gallup, AP-NORC and similar).
-
-Be analytical, data-driven, and scrupulously fair. Never strawman either side.`;
-
 // ─── Style helpers ──────────────────────────────────────────────────
 
 const sectionLabel = {
@@ -76,17 +63,6 @@ const getScoreColor = (score) => {
   if (score <= 34) return C.red;
   if (score <= 59) return C.amber;
   return C.green;
-};
-
-// Common Ground Score: average partisan gap in support across the topic's key
-// policies, inverted so 100 means both parties support them equally.
-const computeOverlapScore = (policySupport) => {
-  const rows = (policySupport || []).filter(
-    (p) => Number.isFinite(p?.democratPct) && Number.isFinite(p?.republicanPct)
-  );
-  if (rows.length === 0) return null;
-  const avgGap = rows.reduce((sum, p) => sum + Math.abs(p.democratPct - p.republicanPct), 0) / rows.length;
-  return Math.round(100 - avgGap);
 };
 
 const getPartyColor = (party) => {
@@ -164,19 +140,11 @@ export default function CommonGroundFinder() {
         : null
     );
 
-    let userMsg = `Analyze this political topic: '${activeTopic}'`;
-    if (selectedParty) userMsg += `. The user identifies as: ${selectedParty}`;
-    userMsg += '. Return ONLY valid JSON, no markdown, no preamble.';
-
     try {
       const res = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          max_tokens: 16000,
-          system: SYSTEM_PROMPT,
-          messages: [{ role: 'user', content: userMsg }],
-        }),
+        body: JSON.stringify({ topic, lean: selectedParty || null }),
       });
 
       if (!res.ok) {
@@ -184,10 +152,7 @@ export default function CommonGroundFinder() {
         throw new Error(`API ${res.status}: ${errBody.slice(0, 200)}`);
       }
 
-      const data = await res.json();
-      const raw = data.content?.find((b) => b.type === 'text')?.text || '';
-      const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      const parsed = JSON.parse(cleaned);
+      const parsed = await res.json();
 
       if (!parsed.commonGround || !parsed.leftPerspective) {
         throw new Error('Unexpected response shape from API');

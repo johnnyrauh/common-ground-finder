@@ -1,19 +1,13 @@
-// Single source of truth for the Claude model. Override with ANTHROPIC_MODEL.
-const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5';
+import { analyze } from '../lib/analyze.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({ ...req.body, model: MODEL }),
-  });
-
-  const data = await response.json();
-  res.status(response.status).json(data);
+  const { topic, lean } = req.body || {};
+  try {
+    const result = await analyze({ topic, lean });
+    res.status(200).json(result);
+  } catch (err) {
+    res.status(err.status || 500).send(err.message || 'Something went wrong.');
+  }
 }

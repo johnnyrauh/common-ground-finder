@@ -26,4 +26,9 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  {
+    // Server-side and eval code runs in Node.
+    files: ['api/**/*.js', 'lib/**/*.js', 'evals/**/*.js'],
+    languageOptions: { globals: globals.node },
+  },
 ])
